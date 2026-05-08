@@ -1,3 +1,4 @@
+console.log("CHAVE:", process.env.OPENAI_API_KEY);
 
 // ═══════════════════════════════════════════════════════════════
 //  JARVIS OMEGA v6 — server.js — CLOUD MODE
