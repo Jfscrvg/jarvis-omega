@@ -1,4 +1,4 @@
-require('dontev').config();
+require('dotenv').config();
 
 // ═══════════════════════════════════════════════════════════════
 //  JARVIS OMEGA v6 — server.js — CLOUD MODE
