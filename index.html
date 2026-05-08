@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>JARVIS · STARK INDUSTRIES</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:    #000810;
+  --cyan:  #00e5ff;
+  --cglow: rgba(0,229,255,.5);
+  --cdim:  #005a6e;
+  --cdark: rgba(0,30,45,.85);
+  --orange:#ff8c00;
+  --oglow: rgba(255,140,0,.6);
+  --red:   #ff1744;
+  --green: #00ff9d;
+  --panel: rgba(0,12,22,.88);
+  --bdr:   rgba(0,229,255,.18);
+  --text:  #a8dff0;
+  --dim:   #2a5a70;
+  --mute:  #0d2a38;
+  --mono:  'Share Tech Mono',monospace;
+  --hud:   'Orbitron',monospace;
+  --body:  'Rajdhani',sans-serif;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
+  color:var(--text);font-family:var(--body);}
+
+/* ── CANVAS ── */
+#bg{position:fixed;inset:0;z-index:0;pointer-events:none;}
+.scan{position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:repeating-linear-gradient(to bottom,transparent 0,transparent 3px,rgba(0,0,0,.05) 3px,rgba(0,0,0,.05) 4px);}
+.beam{position:fixed;left:0;right:0;height:2px;z-index:2;pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+  opacity:.1;animation:beam 6s linear infinite;}
+@keyframes beam{from{top:-2px}to{top:100vh}}
+
+/* ── GRID ── */
+#app{
+  position:relative;z-index:10;
+  width:100vw;height:100vh;
+  display:grid;
+  grid-template-columns:320px 1fr 320px;
+  grid-template-rows:1fr;
+  gap:6px;padding:8px;
+}
+
+/* ── PAINEL GENÉRICO ── */
+.pnl{
+  background:var(--panel);
+  border:1px solid var(--bdr);
+  border-radius:3px;
+  overflow:hidden;
+  display:flex;flex-direction:column;
+  position:relative;
+}
+.pnl::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--cdim),transparent);
+}
+.ph{
+  font-family:var(--mono);font-size:.58rem;letter-spacing:.18em;
+  color:var(--dim);text-transform:uppercase;
+  padding:7px 10px 5px;
+  border-bottom:1px solid var(--mute);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;
+}
+.ph-title{display:flex;align-items:center;gap:5px;}
+.ph-title::before{content:'◈';font-size:.5rem;color:var(--cyan);opacity:.7;}
+
+/* ── ESQUERDA ── */
+#left{display:flex;flex-direction:column;gap:6px;}
+
+/* Globo */
+#globe-pnl{flex-shrink:0;height:220px;}
+#globe-canvas{width:100%;height:160px;display:block;}
+.globe-info{padding:6px 10px;display:flex;flex-direction:column;gap:4px;}
+.gi-row{display:flex;justify-content:space-between;align-items:center;
+  font-family:var(--mono);font-size:.62rem;}
+.gi-label{color:var(--dim);}
+.gi-val{color:var(--cyan);}
+.gi-val.green{color:var(--green);text-shadow:0 0 8px rgba(0,255,157,.5);}
+
+/* Loading bars */
+#load-pnl{flex-shrink:0;}
+.load-row{padding:4px 10px;display:flex;flex-direction:column;gap:2px;}
+.lr-head{display:flex;justify-content:space-between;
+  font-family:var(--mono);font-size:.56rem;color:var(--dim);}
+.lr-bar{height:4px;background:var(--mute);border-radius:2px;overflow:hidden;}
+.lr-fill{height:100%;border-radius:2px;
+  background:linear-gradient(90deg,var(--cdim),var(--cyan));
+  box-shadow:0 0 6px var(--cglow);
+  transition:width .8s ease;}
+.lr-fill.warn{background:linear-gradient(90deg,#5a3000,var(--orange));}
+.lr-fill.crit{background:linear-gradient(90deg,#5a0010,var(--red));}
+
+/* Números CPU/RAM */
+.metrics-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;padding:6px 8px;}
+.metric-box{
+  background:rgba(0,229,255,.04);border:1px solid var(--bdr);
+  border-radius:2px;padding:5px 6px;text-align:center;cursor:pointer;
+  transition:all .2s;
+}
+.metric-box:hover{border-color:var(--cyan);background:rgba(0,229,255,.1);}
+.mb-val{font-family:var(--mono);font-size:.9rem;color:var(--cyan);}
+.mb-val.warn{color:var(--orange);}
+.mb-val.crit{color:var(--red);}
+.mb-label{font-family:var(--mono);font-size:.48rem;color:var(--dim);letter-spacing:.1em;}
+
+/* Screenshot btn */
+#scr-btn{
+  margin:0 8px 8px;padding:5px;
+  background:transparent;border:1px solid var(--bdr);border-radius:2px;
+  color:var(--dim);font-family:var(--mono);font-size:.58rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:5px;
+  transition:all .2s;letter-spacing:.1em;
+}
+#scr-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+
+/* Processos */
+#proc-pnl{flex:1;overflow:hidden;}
+#proc-list{overflow-y:auto;flex:1;}
+#proc-list::-webkit-scrollbar{width:2px;}
+#proc-list::-webkit-scrollbar-thumb{background:var(--cdim);}
+.proc-row{display:flex;align-items:center;gap:4px;padding:3px 10px;
+  font-family:var(--mono);font-size:.56rem;border-bottom:1px solid var(--mute);
+  cursor:pointer;transition:background .15s;}
+.proc-row:hover{background:rgba(0,229,255,.06);}
+.pr-name{flex:1;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pr-cpu{width:30px;text-align:right;color:var(--cyan);}
+.pr-ram{width:30px;text-align:right;color:var(--dim);}
+.pr-kill{background:none;border:none;color:var(--red);cursor:pointer;
+  font-size:.6rem;padding:0 3px;opacity:0;transition:opacity .15s;}
+.proc-row:hover .pr-kill{opacity:1;}
+
+/* ── CENTRO ── */
+#center{display:flex;flex-direction:column;align-items:center;position:relative;
+  padding:10px 0;}
+
+/* Figura holográfica */
+#holo-figure{
+  width:240px;height:260px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  position:relative;
+}
+#figure-canvas{width:240px;height:260px;pointer-events:none;}
+
+/* Nome JARVIS */
+.jarvis-title{
+  font-family:var(--hud);font-size:1.6rem;font-weight:900;
+  letter-spacing:.35em;
+  color:var(--cyan);
+  text-shadow:0 0 20px var(--cglow),0 0 40px rgba(0,229,255,.3);
+  margin:-4px 0 6px;
+  text-align:center;
+}
+.jarvis-underline{
+  width:160px;height:1px;margin:0 auto 12px;
+  background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+  opacity:.6;
+}
+
+/* Botão MIC — laranja como na imagem */
+#mic-wrap{position:relative;margin:4px 0;}
+#mic-btn{
+  width:80px;height:80px;border-radius:50%;
+  border:none;cursor:pointer;outline:none;
+  background:radial-gradient(circle at 38% 35%,#b85800,#6a2f00);
+  box-shadow:0 0 0 3px rgba(255,140,0,.25),0 0 30px rgba(255,140,0,.3),
+             inset 0 0 20px rgba(0,0,0,.5);
+  display:flex;align-items:center;justify-content:center;
+  transition:all .2s;
+  position:relative;z-index:5;
+}
+#mic-btn:hover{
+  box-shadow:0 0 0 3px var(--orange),0 0 50px var(--oglow),
+             inset 0 0 20px rgba(255,140,0,.1);
+  transform:scale(1.05);
+}
+#mic-btn svg{width:32px;height:32px;fill:none;stroke:#fff;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round;}
+
+/* Pulsos ao redor do botão */
+.mpulse{position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:90px;height:90px;border-radius:50%;
+  border:1.5px solid var(--orange);opacity:0;pointer-events:none;}
+body.listening .mpulse:nth-child(1){animation:mpout 1.4s ease-out infinite;}
+body.listening .mpulse:nth-child(2){animation:mpout 1.4s ease-out .5s infinite;}
+body.listening .mpulse:nth-child(3){animation:mpout 1.4s ease-out 1s infinite;}
+@keyframes mpout{0%{opacity:.7;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(2.6)}}
+
+/* Muda cor do botão por estado */
+body.listening  #mic-btn{background:radial-gradient(circle at 38% 35%,#006080,#002040);
+  box-shadow:0 0 0 3px var(--cyan),0 0 50px var(--cglow),inset 0 0 20px rgba(0,229,255,.1);}
+body.processing #mic-btn{background:radial-gradient(circle at 38% 35%,#604000,#301800);
+  box-shadow:0 0 0 3px var(--orange),0 0 40px var(--oglow);}
+body.speaking   #mic-btn{background:radial-gradient(circle at 38% 35%,#006040,#001a10);
+  box-shadow:0 0 0 3px var(--green),0 0 40px rgba(0,255,157,.4);}
+
+/* Label ELEVENLABS */
+#eleven-label{
+  font-family:var(--mono);font-size:.65rem;letter-spacing:.2em;
+  margin-top:8px;
+  color:var(--orange);
+  text-shadow:0 0 12px var(--oglow);
+  display:flex;align-items:center;gap:6px;
+}
+#eleven-label .edot{width:6px;height:6px;border-radius:50%;background:var(--orange);
+  box-shadow:0 0 8px var(--oglow);animation:edot 1.5s ease-in-out infinite;}
+@keyframes edot{0%,100%{opacity:1}50%{opacity:.2}}
+#eleven-label.openai{color:var(--cyan);text-shadow:0 0 12px var(--cglow);}
+#eleven-label.openai .edot{background:var(--cyan);box-shadow:0 0 8px var(--cglow);}
+
+/* Waveform */
+#waveform{
+  width:280px;height:40px;
+  display:flex;align-items:center;justify-content:center;gap:2px;
+  margin:8px 0;
+}
+.wv{width:3px;border-radius:2px 2px 0 0;background:var(--orange);
+  opacity:.5;min-height:2px;transition:height .05s;}
+body.listening  .wv{background:var(--cyan);opacity:.85;}
+body.speaking   .wv{background:var(--green);opacity:.8;}
+body.processing .wv{background:var(--orange);opacity:.4;}
+
+/* Status label */
+#state-label{
+  font-family:var(--mono);font-size:.58rem;letter-spacing:.2em;
+  color:var(--dim);text-transform:uppercase;margin-bottom:6px;
+  transition:color .3s;
+}
+body.listening  #state-label{color:var(--cyan);text-shadow:0 0 8px var(--cglow);}
+body.processing #state-label{color:var(--orange);}
+body.speaking   #state-label{color:var(--green);}
+
+/* Caixa de transcript */
+#transcript{
+  width:100%;max-width:480px;
+  padding:10px 14px;
+  background:rgba(0,0,0,.5);
+  border:1px solid var(--bdr);border-radius:3px;
+  font-family:var(--body);font-size:.88rem;line-height:1.55;
+  text-align:center;min-height:54px;
+  opacity:0;transition:opacity .3s;
+}
+#transcript.show{opacity:1;}
+.tr-user{color:var(--dim);font-style:italic;font-size:.78rem;}
+.tr-jarvis{color:#8af0c0;}
+
+/* Keyboard shortcut hint */
+.key-hint{font-family:var(--mono);font-size:.5rem;color:var(--mute);
+  letter-spacing:.12em;margin-top:4px;}
+
+/* Input texto */
+#txt-zone{width:100%;max-width:480px;margin-top:8px;
+  opacity:0;transition:opacity .3s;}
+#txt-zone:hover,#txt-zone:focus-within{opacity:1;}
+.tz-hint{font-family:var(--mono);font-size:.5rem;color:var(--mute);
+  text-align:center;letter-spacing:.1em;margin-bottom:4px;}
+#txt-row{display:flex;gap:5px;}
+#txt-input{flex:1;background:rgba(0,0,0,.5);border:1px solid var(--bdr);
+  border-radius:2px;padding:6px 10px;font-family:var(--mono);
+  font-size:.7rem;color:var(--text);outline:none;transition:border-color .2s;}
+#txt-input:focus{border-color:var(--cdim);}
+#txt-input::placeholder{color:var(--mute);}
+#txt-send{padding:6px 12px;background:transparent;border:1px solid var(--bdr);
+  border-radius:2px;color:var(--dim);font-family:var(--mono);
+  font-size:.6rem;cursor:pointer;letter-spacing:.08em;transition:all .2s;}
+#txt-send:hover{border-color:var(--cyan);color:var(--cyan);}
+
+/* ── DIREITA ── */
+#right{display:flex;flex-direction:column;gap:6px;}
+
+/* Radar */
+#radar-pnl{flex-shrink:0;height:200px;position:relative;}
+#radar-canvas{width:100%;height:160px;display:block;}
+.radar-status{padding:5px 10px;font-family:var(--mono);font-size:.6rem;
+  display:flex;justify-content:space-between;}
+.rs-label{color:var(--dim);}
+.rs-val{color:var(--green);text-shadow:0 0 6px rgba(0,255,157,.4);}
+
+/* Log terminal */
+#log-pnl{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+#log-list{flex:1;overflow-y:auto;padding:4px 0;font-family:var(--mono);font-size:.58rem;}
+#log-list::-webkit-scrollbar{width:2px;}
+#log-list::-webkit-scrollbar-thumb{background:var(--cdim);}
+.le{display:flex;gap:5px;padding:2px 8px;border-bottom:1px solid var(--mute);
+  animation:fein .2s ease;}
+@keyframes fein{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+.le-ts{color:var(--mute);flex-shrink:0;}
+.le-tag{flex-shrink:0;width:68px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.le-tag.ok{color:var(--green);}
+.le-tag.intent{color:var(--cyan);}
+.le-tag.agent{color:var(--orange);}
+.le-tag.error{color:var(--red);}
+.le-tag.warn{color:var(--orange);opacity:.7;}
+.le-msg{color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+
+/* Badges de status */
+.status-row{display:flex;gap:5px;flex-wrap:wrap;padding:5px 8px;}
+.sbadge{padding:3px 8px;border:1px solid var(--bdr);border-radius:2px;
+  font-family:var(--mono);font-size:.55rem;color:var(--dim);cursor:pointer;
+  transition:all .2s;letter-spacing:.08em;display:flex;align-items:center;gap:4px;}
+.sbadge:hover{border-color:var(--cdim);color:var(--cyan);}
+.sbadge.on{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 6px rgba(0,229,255,.2);}
+.sbadge.red{border-color:var(--red);color:var(--red);}
+.sbadge .sd{width:4px;height:4px;border-radius:50%;background:currentColor;
+  box-shadow:0 0 5px currentColor;}
+.sbadge .sd.pulse{animation:sdpulse 1.8s ease-in-out infinite;}
+@keyframes sdpulse{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* Agentes grid */
+#agents-pnl{flex-shrink:0;}
+#agents-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:5px 8px;}
+.ag-card{padding:5px 7px;border:1px solid var(--bdr);border-radius:2px;
+  cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
+.ag-card:hover{border-color:var(--cdim);background:rgba(0,229,255,.05);}
+.ag-card.running{border-color:var(--cyan);
+  box-shadow:0 0 8px rgba(0,229,255,.2);}
+.ag-card.running::after{content:'';position:absolute;top:0;left:-100%;
+  width:60%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(0,229,255,.08),transparent);
+  animation:sweep 1.2s linear infinite;}
+@keyframes sweep{from{left:-60%}to{left:120%}}
+.ag-name{font-family:var(--mono);font-size:.55rem;color:var(--text);}
+.ag-st{font-size:.5rem;color:var(--dim);margin-top:1px;}
+
+/* Chat */
+#chat-pnl{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+#chat-list{flex:1;overflow-y:auto;padding:5px 8px;display:flex;flex-direction:column;gap:5px;}
+#chat-list::-webkit-scrollbar{width:2px;}
+#chat-list::-webkit-scrollbar-thumb{background:var(--cdim);}
+.cm{padding:6px 8px;border-radius:2px;font-family:var(--body);
+  font-size:.78rem;line-height:1.5;animation:fein .25s ease;}
+.cm.user{background:rgba(0,30,50,.6);border-left:2px solid var(--cdim);color:var(--text);}
+.cm.jarvis{background:rgba(0,20,12,.6);border-left:2px solid var(--green);color:#8af0c0;}
+.cm.jarvis .cw{font-family:var(--mono);font-size:.5rem;color:var(--green);
+  letter-spacing:.1em;margin-bottom:2px;}
+
+/* Bottom bar */
+#botbar{position:fixed;bottom:0;left:0;right:0;z-index:20;
+  display:flex;align-items:center;gap:6px;padding:4px 10px;
+  background:rgba(0,5,12,.95);border-top:1px solid var(--bdr);}
+.bb-btn{padding:4px 11px;background:transparent;border:1px solid var(--bdr);
+  border-radius:2px;color:var(--dim);font-family:var(--mono);
+  font-size:.58rem;cursor:pointer;letter-spacing:.08em;transition:all .2s;}
+.bb-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+.bb-btn.danger:hover{border-color:var(--red);color:var(--red);}
+.bb-sep{width:1px;height:16px;background:var(--bdr);}
+.bb-info{font-family:var(--mono);font-size:.56rem;color:var(--dim);
+  display:flex;gap:12px;margin-left:auto;}
+.bb-item{display:flex;gap:4px;}
+.bb-lbl{color:var(--mute);}
+.bb-val{color:var(--cyan);}
+
+/* Modal settings */
+#cfg-modal{position:fixed;inset:0;z-index:200;display:none;
+  align-items:center;justify-content:center;background:rgba(0,0,0,.8);}
+#cfg-modal.open{display:flex;}
+#cfg-box{width:440px;background:var(--panel);border:1px solid var(--bdr);
+  border-radius:3px;padding:18px;backdrop-filter:blur(16px);}
+.cfg-title{font-family:var(--hud);font-size:.65rem;letter-spacing:.2em;
+  color:var(--cyan);margin-bottom:14px;}
+.cfg-row{display:flex;flex-direction:column;gap:3px;margin-bottom:10px;}
+.cfg-label{font-family:var(--mono);font-size:.58rem;color:var(--dim);letter-spacing:.1em;}
+.cfg-input{background:rgba(0,0,0,.6);border:1px solid var(--bdr);border-radius:2px;
+  padding:6px 10px;font-family:var(--mono);font-size:.7rem;color:var(--text);outline:none;}
+.cfg-input:focus{border-color:var(--cdim);}
+.cfg-btns{display:flex;gap:7px;justify-content:flex-end;margin-top:14px;}
+.cfg-btn{padding:5px 14px;border-radius:2px;font-family:var(--mono);
+  font-size:.58rem;cursor:pointer;letter-spacing:.08em;transition:all .2s;}
+.cfg-btn.cancel{background:transparent;border:1px solid var(--bdr);color:var(--dim);}
+.cfg-btn.cancel:hover{border-color:var(--cdim);color:var(--cyan);}
+.cfg-btn.save{background:rgba(0,229,255,.1);border:1px solid var(--cdim);color:var(--cyan);}
+.cfg-btn.save:hover{background:rgba(0,229,255,.2);}
+.cfg-btn.danger{background:rgba(255,23,68,.08);border:1px solid rgba(255,23,68,.4);color:var(--red);}
+.cfg-btn.danger:hover{background:rgba(255,23,68,.18);}
+
+/* Alert */
+#alert{position:fixed;top:10px;left:50%;transform:translateX(-50%);
+  padding:7px 18px;border:1px solid var(--red);border-radius:2px;
+  background:rgba(255,23,68,.1);font-family:var(--mono);font-size:.62rem;
+  color:var(--red);z-index:300;opacity:0;transition:opacity .3s;
+  pointer-events:none;max-width:600px;text-align:center;}
+#alert.show{opacity:1;}
+
+/* HUD corners */
+.hc{position:fixed;width:18px;height:18px;border-color:rgba(0,229,255,.2);
+  border-style:solid;pointer-events:none;z-index:100;}
+.hc.tl{top:6px;left:6px;border-width:2px 0 0 2px;}
+.hc.tr{top:6px;right:6px;border-width:2px 2px 0 0;}
+.hc.bl{bottom:30px;left:6px;border-width:0 0 2px 2px;}
+.hc.br{bottom:30px;right:6px;border-width:0 2px 2px 0;}
+</style>
+</head>
+<body>
+
+<div class="hc tl"></div><div class="hc tr"></div>
+<div class="hc bl"></div><div class="hc br"></div>
+
+<canvas id="bg"></canvas>
+<div class="scan"></div>
+<div class="beam"></div>
+<div id="alert"></div>
+
+<!-- CONFIG MODAL -->
+<div id="cfg-modal">
+  <div id="cfg-box">
+    <div class="cfg-title">◈ CONFIGURAÇÕES DO SISTEMA</div>
+    <div class="cfg-row"><label class="cfg-label">NOME DO USUÁRIO</label>
+      <input class="cfg-input" id="cfg-user" value="Senhor"/></div>
+    <div class="cfg-row"><label class="cfg-label">WAKE WORD</label>
+      <input class="cfg-input" id="cfg-wake" value="jarvis"/></div>
+    <div class="cfg-row"><label class="cfg-label">SILÊNCIO AUTO-STOP (ms)</label>
+      <input class="cfg-input" id="cfg-sil" type="number" value="1800" min="500" max="8000" step="100"/></div>
+    <div class="cfg-row"><label class="cfg-label">PERSONALIDADE</label>
+      <select class="cfg-input" id="cfg-pers">
+        <option value="sarcastico">Sarcástico (Stark)</option>
+        <option value="formal">Formal</option>
+        <option value="casual">Casual</option>
+        <option value="tecnico">Técnico</option>
+      </select></div>
+    <div class="cfg-btns">
+      <button class="cfg-btn danger" onclick="limparMemoria()">🗑 LIMPAR MEMÓRIA</button>
+      <button class="cfg-btn cancel" onclick="closeCfg()">CANCELAR</button>
+      <button class="cfg-btn save" onclick="saveCfg()">SALVAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="padding-bottom:30px;">
+
+  <!-- ESQUERDA -->
+  <div id="left">
+
+    <!-- Globo -->
+    <div class="pnl" id="globe-pnl">
+      <div class="ph"><span class="ph-title">LOCALIZAÇÃO</span>
+        <span id="clock" style="font-family:var(--mono);font-size:.6rem;color:var(--cyan)">--:--:--</span>
+      </div>
+      <canvas id="globe-canvas"></canvas>
+      <div class="globe-info">
+        <div class="gi-row">
+          <span class="gi-label">EARTH</span>
+          <span class="gi-val">N33</span>
+        </div>
+        <div class="gi-row">
+          <span class="gi-label">STATUS</span>
+          <span class="gi-val green" id="sys-status">ACTIVATED</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Métricas + loading -->
+    <div class="pnl" id="load-pnl">
+      <div class="ph"><span class="ph-title">SISTEMA</span>
+        <button onclick="refreshMonitor()" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:.6rem">↺</button>
+      </div>
+      <div class="metrics-grid">
+        <div class="metric-box" onclick="refreshMonitor()">
+          <div class="mb-val" id="cpu-v">0%</div>
+          <div class="mb-label">CPU</div>
+        </div>
+        <div class="metric-box" onclick="refreshMonitor()">
+          <div class="mb-val" id="ram-v">0%</div>
+          <div class="mb-label">RAM</div>
+        </div>
+        <div class="metric-box">
+          <div class="mb-val" id="dsk-v">0%</div>
+          <div class="mb-label">DISCO</div>
+        </div>
+        <div class="metric-box" onclick="lerTela()">
+          <div class="mb-val" style="font-size:.7rem">👁</div>
+          <div class="mb-label">LER</div>
+        </div>
+      </div>
+      <div id="load-bars" style="padding:0 0 4px;"></div>
+      <button id="scr-btn" onclick="tirarScreenshot()">📷 CAPTURAR TELA</button>
+    </div>
+
+    <!-- Processos -->
+    <div class="pnl" id="proc-pnl" style="flex:1;">
+      <div class="ph"><span class="ph-title">PROCESSOS</span>
+        <button onclick="refreshMonitor()" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:.6rem">↺</button>
+      </div>
+      <div id="proc-list" style="flex:1;overflow-y:auto;"></div>
+    </div>
+
+  </div>
+
+  <!-- CENTRO -->
+  <div id="center">
+
+    <!-- Figura holográfica -->
+    <canvas id="figure-canvas" width="240" height="220"></canvas>
+
+    <!-- Título -->
+    <div class="jarvis-title">JARVIS</div>
+    <div class="jarvis-underline"></div>
+
+    <!-- Botão MIC -->
+    <div id="mic-wrap">
+      <div class="mpulse"></div>
+      <div class="mpulse"></div>
+      <div class="mpulse"></div>
+      <button id="mic-btn" onclick="handleMicClick()" title="Clique ou pressione Espaço para falar">
+        <!-- MIC SVG -->
+        <svg id="ico-mic" viewBox="0 0 24 24">
+          <rect x="9" y="2" width="6" height="11" rx="3"/>
+          <path d="M5 10a7 7 0 0 0 14 0"/>
+          <line x1="12" y1="17" x2="12" y2="21"/>
+          <line x1="9" y1="21" x2="15" y2="21"/>
+        </svg>
+        <!-- STOP SVG (oculto) -->
+        <svg id="ico-stop" viewBox="0 0 24 24" style="display:none">
+          <rect x="6" y="6" width="12" height="12" rx="2"/>
+        </svg>
+        <!-- LOADER SVG (oculto) -->
+        <svg id="ico-load" viewBox="0 0 24 24" style="display:none">
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+          <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur=".8s" repeatCount="indefinite"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Engine badge -->
+    <div id="eleven-label" class="openai">
+      <span class="edot"></span>
+      <span id="engine-text">OPENAI TTS ATIVO</span>
+    </div>
+
+    <!-- Waveform -->
+    <div id="waveform"></div>
+
+    <!-- State label -->
+    <div id="state-label">PRONTO PARA OUVIR</div>
+
+    <!-- Transcript -->
+    <div id="transcript">
+      <div id="tr-content"></div>
+    </div>
+
+    <div class="key-hint">ESPAÇO para falar · ESC para parar</div>
+
+    <!-- Input texto (secundário) -->
+    <div id="txt-zone">
+      <div class="tz-hint">▾ texto (alternativo)</div>
+      <div id="txt-row">
+        <input type="text" id="txt-input" placeholder="ou escreva um comando..."/>
+        <button id="txt-send" onclick="sendText()">ENVIAR</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- DIREITA -->
+  <div id="right">
+
+    <!-- Radar -->
+    <div class="pnl" id="radar-pnl">
+      <div class="ph"><span class="ph-title">TRACKING SYSTEM</span></div>
+      <canvas id="radar-canvas" width="300" height="150"></canvas>
+      <div class="radar-status">
+        <span class="rs-label">STATUS</span>
+        <span class="rs-val" id="radar-status">ONLINE</span>
+      </div>
+    </div>
+
+    <!-- Status badges -->
+    <div class="pnl" style="flex-shrink:0;">
+      <div class="ph"><span class="ph-title">CONTROLES</span></div>
+      <div class="status-row">
+        <div class="sbadge on" id="b-online"><span class="sd pulse"></span>ONLINE</div>
+        <div class="sbadge" id="b-eleven" title="ElevenLabs TTS">
+          <span class="sd"></span>ELEVEN</div>
+        <div class="sbadge" id="b-wake" onclick="toggleWake()" title="Wake-word Jarvis">
+          <span class="sd"></span>WAKE</div>
+        <div class="sbadge on" id="b-tts" onclick="toggleTts()">🔊 TTS</div>
+        <div class="sbadge" onclick="openCfg()" title="Configurações">⚙ CFG</div>
+      </div>
+    </div>
+
+    <!-- Agentes -->
+    <div class="pnl" id="agents-pnl">
+      <div class="ph"><span class="ph-title">AGENTES</span>
+        <button onclick="dispararAgente()" style="background:none;border:1px solid var(--bdr);
+          color:var(--dim);cursor:pointer;font-family:var(--mono);font-size:.52rem;padding:2px 6px;
+          border-radius:2px;transition:all .2s;"
+          onmouseover="this.style.color='var(--cyan)'" onmouseout="this.style.color='var(--dim)'">
+          ▶ EXECUTAR
+        </button>
+      </div>
+      <div id="agents-grid"></div>
+      <div style="padding:5px 8px;">
+        <input id="agent-input" placeholder="Objetivo para o agente..."
+          style="width:100%;background:rgba(0,0,0,.5);border:1px solid var(--bdr);
+          border-radius:2px;padding:5px 8px;font-family:var(--mono);font-size:.65rem;
+          color:var(--text);outline:none;"
+          onfocus="this.style.borderColor='var(--cdim)'"
+          onblur="this.style.borderColor='var(--bdr)'"
+          onkeydown="if(event.key==='Enter') dispararAgente()"/>
+      </div>
+    </div>
+
+    <!-- Log terminal -->
+    <div class="pnl" id="log-pnl">
+      <div class="ph">
+        <span class="ph-title">LOG OPERACIONAL</span>
+        <button onclick="clearLog()" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:.6rem">✕</button>
+      </div>
+      <div id="log-list"></div>
+    </div>
+
+    <!-- Chat -->
+    <div class="pnl" id="chat-pnl">
+      <div class="ph">
+        <span class="ph-title">CONVERSAÇÃO</span>
+        <button onclick="clearChat()" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:.6rem">✕</button>
+      </div>
+      <div id="chat-list"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- BOTTOM BAR -->
+<div id="botbar">
+  <button class="bb-btn" onclick="handleMicClick()">🎙 MIC</button>
+  <button class="bb-btn" onclick="tirarScreenshot()">📷 TELA</button>
+  <button class="bb-btn" onclick="lerTela()">👁 OCR</button>
+  <button class="bb-btn" onclick="refreshMonitor()">📊 MONITOR</button>
+  <button class="bb-btn" onclick="dispararAgente()">🤖 AGENTE</button>
+  <button class="bb-btn danger" onclick="limparMemoria()">🗑 MEM</button>
+  <div class="bb-sep"></div>
+  <div class="bb-info">
+    <div class="bb-item"><span class="bb-lbl">WS</span><span class="bb-val" id="ws-st">--</span></div>
+    <div class="bb-item"><span class="bb-lbl">ENGINE</span><span class="bb-val" id="fi-eng">--</span></div>
+    <div class="bb-item"><span class="bb-lbl">MODEL</span><span class="bb-val" id="fi-mod">--</span></div>
+    <div class="bb-item"><span class="bb-lbl">UP</span><span class="bb-val" id="fi-up">0s</span></div>
+  </div>
+</div>
+
+<script src="voice.js"></script>
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════
+//  CONFIG — auto-detecta origem para funcionar local e VPS
+// ═══════════════════════════════════════════════════════
+const API    = window.location.origin;
+const WS_URL = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}`;
+
+let ttsAuto  = true;
+let wakeOn   = false;
+let ws;
+let srvCfg   = {};
+let bootTs   = Date.now();
+let vizData  = null;
+
+// ═══════════════════════════════════════════════════════
+//  RELÓGIO
+// ═══════════════════════════════════════════════════════
+setInterval(()=>{
+  document.getElementById("clock").textContent=
+    new Date().toLocaleTimeString("pt-BR",{hour12:false});
+  document.getElementById("fi-up").textContent=
+    fmtUp(Math.floor((Date.now()-bootTs)/1000));
+},1000);
+function fmtUp(s){
+  if(s<60) return s+"s";
+  if(s<3600) return Math.floor(s/60)+"m";
+  return Math.floor(s/3600)+"h"+Math.floor((s%3600)/60)+"m";
+}
+
+// ═══════════════════════════════════════════════════════
+//  BG CANVAS — grid + glows
+// ═══════════════════════════════════════════════════════
+(()=>{
+  const cv=document.getElementById("bg");
+  const cx=cv.getContext("2d");
+  function rs(){cv.width=window.innerWidth;cv.height=window.innerHeight;}
+  rs(); window.addEventListener("resize",rs);
+  let t=0;
+  (function draw(){
+    cx.clearRect(0,0,cv.width,cv.height);
+    cx.strokeStyle="rgba(0,60,100,.2)"; cx.lineWidth=.4;
+    for(let x=0;x<cv.width;x+=50){cx.beginPath();cx.moveTo(x,0);cx.lineTo(x,cv.height);cx.stroke();}
+    for(let y=0;y<cv.height;y+=50){cx.beginPath();cx.moveTo(0,y);cx.lineTo(cv.width,y);cx.stroke();}
+    t+=.004;
+    const grd=cx.createRadialGradient(cv.width/2+Math.sin(t)*120,cv.height/2+Math.cos(t*.7)*80,0,cv.width/2,cv.height/2,350);
+    grd.addColorStop(0,"rgba(0,60,120,.12)"); grd.addColorStop(1,"transparent");
+    cx.fillStyle=grd; cx.fillRect(0,0,cv.width,cv.height);
+    requestAnimationFrame(draw);
+  })();
+})();
+
+// ═══════════════════════════════════════════════════════
+//  GLOBO 3D (canvas)
+// ═══════════════════════════════════════════════════════
+(()=>{
+  const cv=document.getElementById("globe-canvas");
+  cv.width=cv.clientWidth||300; cv.height=150;
+  const cx=cv.getContext("2d");
+  const cx_=cv.width/2, cy_=cv.height/2, R=58;
+  let rot=0;
+  // pontos simplificados de continentes (lat/lon)
+  const pts=[
+    // América do Sul
+    [-10,300],[-20,310],[-30,305],[-5,295],[-15,315],[0,305],
+    // América do Norte
+    [40,280],[45,270],[35,260],[50,285],[30,275],
+    // Europa
+    [50,10],[45,15],[55,5],[48,20],[52,0],
+    // África
+    [5,20],[0,30],[-10,25],[10,15],[-20,20],
+    // Ásia
+    [40,80],[50,100],[30,90],[60,70],[35,120],
+    // Oceania
+    [-25,135],[-30,145],[-20,150],
+  ];
+
+  (function draw(){
+    cx.clearRect(0,0,cv.width,cv.height);
+    // Esfera
+    const g=cx.createRadialGradient(cx_-15,cy_-15,5,cx_,cy_,R);
+    g.addColorStop(0,"rgba(0,80,120,.4)");
+    g.addColorStop(1,"rgba(0,20,40,.8)");
+    cx.beginPath(); cx.arc(cx_,cy_,R,0,Math.PI*2);
+    cx.fillStyle=g; cx.fill();
+    cx.strokeStyle="rgba(0,229,255,.2)"; cx.lineWidth=1; cx.stroke();
+    // Meridianos
+    cx.strokeStyle="rgba(0,229,255,.12)"; cx.lineWidth=.5;
+    for(let i=0;i<8;i++){
+      const a=i*Math.PI/4+rot;
+      cx.beginPath();
+      for(let la=-90;la<=90;la+=10){
+        const laR=la*Math.PI/180;
+        const x=cx_+R*Math.cos(laR)*Math.cos(a);
+        const y=cy_+R*Math.sin(laR);
+        if(la===-90) cx.moveTo(x,y); else cx.lineTo(x,y);
+      }
+      cx.stroke();
+    }
+    // Paralelos
+    for(let i=1;i<4;i++){
+      const la=i*30*Math.PI/180;
+      cx.beginPath();
+      for(let lo=0;lo<=360;lo+=10){
+        const loR=(lo*Math.PI/180)+rot;
+        const x=cx_+R*Math.cos(la)*Math.cos(loR);
+        const y=cy_+R*Math.sin(la);
+        if(lo===0) cx.moveTo(x,y); else cx.lineTo(x,y);
+      }
+      cx.stroke();
+    }
+    // Pontos de continente
+    pts.forEach(([lat,lon])=>{
+      const laR=lat*Math.PI/180;
+      const loR=(lon*Math.PI/180)+rot;
+      const x=cx_+R*Math.cos(laR)*Math.cos(loR);
+      const y=cy_+R*Math.sin(laR);
+      const viz=Math.cos(laR)*Math.cos(loR)>-0.1;
+      if(viz){
+        cx.beginPath(); cx.arc(x,y,1.5,0,Math.PI*2);
+        cx.fillStyle="rgba(0,229,255,.7)"; cx.fill();
+      }
+    });
+    // Marker do Brasil
+    const brLat=-15*Math.PI/180, brLon=(300*Math.PI/180)+rot;
+    const bx=cx_+R*Math.cos(brLat)*Math.cos(brLon);
+    const by=cy_+R*Math.sin(brLat);
+    if(Math.cos(brLat)*Math.cos(brLon)>0){
+      cx.beginPath(); cx.arc(bx,by,3,0,Math.PI*2);
+      cx.fillStyle="rgba(255,140,0,.9)"; cx.fill();
+      cx.strokeStyle="rgba(255,140,0,.5)"; cx.lineWidth=1;
+      cx.beginPath(); cx.arc(bx,by,6,0,Math.PI*2); cx.stroke();
+    }
+    rot+=0.004;
+    requestAnimationFrame(draw);
+  })();
+})();
+
+// ═══════════════════════════════════════════════════════
+//  FIGURA HOLOGRÁFICA (canvas)
+// ═══════════════════════════════════════════════════════
+(()=>{
+  const cv=document.getElementById("figure-canvas");
+  const cx=cv.getContext("2d");
+  let t=0;
+  (function draw(){
+    cx.clearRect(0,0,cv.width,cv.height);
+    const W=cv.width, H=cv.height;
+    const cx_=W/2, base=H-20;
+    // Silhueta humana simplificada
+    const pulse=0.5+0.5*Math.sin(t*2);
+    const alpha=0.3+0.4*pulse;
+    cx.strokeStyle=`rgba(0,229,255,${alpha})`;
+    cx.lineWidth=1.5;
+    // Base glow
+    const bg=cx.createRadialGradient(cx_,base,0,cx_,base,60);
+    bg.addColorStop(0,`rgba(0,229,255,${0.15*pulse})`);
+    bg.addColorStop(1,"transparent");
+    cx.fillStyle=bg; cx.fillRect(0,0,W,H);
+    // Pernas
+    cx.beginPath(); cx.moveTo(cx_-8,H-80); cx.lineTo(cx_-12,base);
+    cx.moveTo(cx_+8,H-80); cx.lineTo(cx_+12,base);
+    cx.stroke();
+    // Torso
+    cx.beginPath();
+    cx.moveTo(cx_-18,H-160); cx.lineTo(cx_-8,H-80);
+    cx.lineTo(cx_+8,H-80); cx.lineTo(cx_+18,H-160);
+    cx.closePath(); cx.stroke();
+    // Braços
+    cx.beginPath();
+    cx.moveTo(cx_-18,H-160); cx.lineTo(cx_-35,H-120);
+    cx.moveTo(cx_+18,H-160); cx.lineTo(cx_+35,H-120);
+    cx.stroke();
+    // Cabeça
+    cx.beginPath(); cx.arc(cx_,H-180,18,0,Math.PI*2);
+    cx.strokeStyle=`rgba(0,229,255,${alpha})`; cx.stroke();
+    // Linhas de energia
+    for(let i=0;i<6;i++){
+      const y=H-40-i*28;
+      const w=20+Math.sin(t+i)*8;
+      const a=0.1+0.2*Math.abs(Math.sin(t*1.5+i));
+      cx.strokeStyle=`rgba(0,229,255,${a})`;
+      cx.lineWidth=.5;
+      cx.beginPath();
+      cx.moveTo(cx_-w,y); cx.lineTo(cx_+w,y); cx.stroke();
+    }
+    // Partículas
+    for(let i=0;i<8;i++){
+      const px=cx_+Math.sin(t*1.2+i*0.8)*40;
+      const py=base-80-Math.abs(Math.sin(t*0.5+i))*140;
+      cx.beginPath(); cx.arc(px,py,1,0,Math.PI*2);
+      cx.fillStyle=`rgba(0,229,255,${0.2+0.5*Math.sin(t+i)})`; cx.fill();
+    }
+    t+=0.025;
+    requestAnimationFrame(draw);
+  })();
+})();
+
+// ═══════════════════════════════════════════════════════
+//  RADAR (canvas)
+// ═══════════════════════════════════════════════════════
+(()=>{
+  const cv=document.getElementById("radar-canvas");
+  cv.width=cv.clientWidth||300; cv.height=150;
+  const cx=cv.getContext("2d");
+  const cx_=cv.width/2, cy_=cv.height-10, R=130;
+  let sweep=0;
+  const blips=[];
+  for(let i=0;i<6;i++) blips.push({a:Math.random()*Math.PI,d:0.3+Math.random()*0.65,age:Math.random()*100});
+  (function draw(){
+    cx.clearRect(0,0,cv.width,cv.height);
+    // Anéis
+    cx.strokeStyle="rgba(0,229,255,.12)"; cx.lineWidth=.8;
+    for(let r=R*0.3;r<=R;r+=R*0.25){
+      cx.beginPath(); cx.arc(cx_,cy_,r,Math.PI,0); cx.stroke();
+    }
+    // Linhas radiais
+    for(let a=0;a<Math.PI;a+=Math.PI/6){
+      cx.beginPath();
+      cx.moveTo(cx_,cy_);
+      cx.lineTo(cx_+Math.cos(a)*R,cy_-Math.sin(a)*R);
+      cx.stroke();
+    }
+    // Sweep
+    const g=cx.createConicalGradient?.(cx_,cy_,sweep);
+    cx.save();
+    cx.beginPath(); cx.moveTo(cx_,cy_);
+    cx.arc(cx_,cy_,R,sweep-0.4,sweep,false);
+    cx.closePath();
+    const sg=cx.createRadialGradient(cx_,cy_,0,cx_,cy_,R);
+    sg.addColorStop(0,"rgba(0,229,255,.05)");
+    sg.addColorStop(1,"rgba(0,229,255,.2)");
+    cx.fillStyle=sg; cx.fill(); cx.restore();
+    // Linha do sweep
+    cx.strokeStyle="rgba(0,229,255,.7)"; cx.lineWidth=1.5;
+    cx.beginPath();
+    cx.moveTo(cx_,cy_);
+    cx.lineTo(cx_+Math.cos(sweep)*R, cy_-Math.sin(sweep)*R);
+    cx.stroke();
+    // Blips
+    blips.forEach(b=>{
+      b.age++;
+      const diff=((sweep-b.a+Math.PI*3)%(Math.PI));
+      if(diff<0.15){b.age=0;}
+      const a2=Math.max(0,1-b.age/60);
+      if(a2>0){
+        const bx=cx_+Math.cos(b.a)*R*b.d;
+        const by=cy_-Math.sin(b.a)*R*b.d;
+        cx.beginPath(); cx.arc(bx,by,3,0,Math.PI*2);
+        cx.fillStyle=`rgba(0,255,157,${a2})`; cx.fill();
+        cx.beginPath(); cx.arc(bx,by,6,0,Math.PI*2);
+        cx.strokeStyle=`rgba(0,255,157,${a2*0.3})`; cx.lineWidth=1; cx.stroke();
+      }
+    });
+    sweep=(sweep-0.03+Math.PI*2)%Math.PI;
+    if(sweep<0.03) sweep=Math.PI;
+    requestAnimationFrame(draw);
+  })();
+})();
+
+// ═══════════════════════════════════════════════════════
+//  WAVEFORM
+// ═══════════════════════════════════════════════════════
+const wvEl=document.getElementById("waveform");
+const WV_N=30; const wvBars=[];
+for(let i=0;i<WV_N;i++){
+  const b=document.createElement("div"); b.className="wv"; b.style.height="2px";
+  wvEl.appendChild(b); wvBars.push(b);
+}
+let wvRaf=null;
+function animWv(){
+  const t=Date.now()/1000;
+  if(vizData&&vizData.length>0){
+    wvBars.forEach((b,i)=>{
+      const idx=Math.floor(i*(vizData.length/WV_N));
+      const h=2+(vizData[idx]/255)*34;
+      b.style.height=h+"px";
+    });
+  } else {
+    wvBars.forEach((b,i)=>{
+      const h=2+Math.abs(Math.sin(t*1.2+i*.4))*8;
+      b.style.height=h+"px";
+    });
+  }
+  wvRaf=requestAnimationFrame(animWv);
+}
+animWv();
+
+// ═══════════════════════════════════════════════════════
+//  ESTADO HUD
+// ═══════════════════════════════════════════════════════
+const STATE_LBL={
+  idle:"PRONTO PARA OUVIR",
+  requesting:"SOLICITANDO PERMISSÃO",
+  listening:"OUVINDO...",
+  processing:"PROCESSANDO...",
+  speaking:"RESPONDENDO"
+};
+function setHud(s){
+  document.body.classList.remove("listening","processing","speaking");
+  if(s!=="idle"&&s!=="requesting") document.body.classList.add(s);
+  const el=document.getElementById("state-label");
+  if(el) el.textContent=STATE_LBL[s]||s.toUpperCase();
+  // Ícones do botão
+  document.getElementById("ico-mic").style.display =
+    (s==="listening")?"none":"block";
+  document.getElementById("ico-stop").style.display =
+    (s==="listening")?"block":"none";
+  document.getElementById("ico-load").style.display =
+    (s==="processing")?"block":"none";
+}
+
+// ═══════════════════════════════════════════════════════
+//  TRANSCRIPT
+// ═══════════════════════════════════════════════════════
+function showTr(html,tipo){
+  const box=document.getElementById("transcript");
+  const cnt=document.getElementById("tr-content");
+  if(tipo==="user") cnt.innerHTML=`<span class="tr-user">"${esc(html)}"</span>`;
+  else if(tipo==="jarvis") cnt.innerHTML=`<span class="tr-jarvis">${esc(html)}</span>`;
+  else cnt.textContent=html;
+  box.classList.add("show");
+}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+// ═══════════════════════════════════════════════════════
+//  LOG
+// ═══════════════════════════════════════════════════════
+const logEl=document.getElementById("log-list");
+function addLog(tag,msg,cls="intent"){
+  const e=document.createElement("div"); e.className="le";
+  const ts=new Date().toLocaleTimeString("pt-BR",{hour12:false,hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  e.innerHTML=`<span class="le-ts">${ts}</span>
+    <span class="le-tag ${cls}" title="${esc(tag)}">${esc(tag).slice(0,10)}</span>
+    <span class="le-msg" title="${esc(msg)}">${esc(msg).slice(0,90)}</span>`;
+  logEl.appendChild(e); logEl.scrollTop=logEl.scrollHeight;
+  while(logEl.children.length>150) logEl.removeChild(logEl.firstChild);
+}
+function clearLog(){logEl.innerHTML="";}
+
+// ═══════════════════════════════════════════════════════
+//  CHAT
+// ═══════════════════════════════════════════════════════
+const chatEl=document.getElementById("chat-list");
+function addChat(txt,role){
+  const m=document.createElement("div"); m.className=`cm ${role}`;
+  if(role==="jarvis") m.innerHTML=`<div class="cw">JARVIS</div>${esc(txt)}`;
+  else m.textContent=txt;
+  chatEl.appendChild(m); chatEl.scrollTop=chatEl.scrollHeight;
+  while(chatEl.children.length>80) chatEl.removeChild(chatEl.firstChild);
+}
+function clearChat(){chatEl.innerHTML="";}
+
+// ═══════════════════════════════════════════════════════
+//  MONITOR
+// ═══════════════════════════════════════════════════════
+function updMon(d){
+  if(!d) return;
+  const cpu=d.cpu||0,ram=d.ram||0,dsk=d.disco||0;
+  function setMv(id,v){
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.textContent=v.toFixed(0)+"%";
+    el.className="mb-val"+(v>85?" crit":v>65?" warn":"");
+  }
+  setMv("cpu-v",cpu); setMv("ram-v",ram); setMv("dsk-v",dsk);
+
+  // Loading bars
+  const lb=document.getElementById("load-bars");
+  if(lb){
+    const items=[
+      {label:`CPU-${crypto.randomUUID().slice(0,4).toUpperCase()} LOADING`,v:cpu},
+      {label:`RAM-${crypto.randomUUID().slice(0,4).toUpperCase()} LOADING`,v:ram},
+      {label:`DSK-${crypto.randomUUID().slice(0,4).toUpperCase()} LOADING`,v:dsk},
+    ];
+    lb.innerHTML=items.map(it=>`
+      <div class="load-row">
+        <div class="lr-head"><span>${it.label}</span><span>${it.v.toFixed(0)}%</span></div>
+        <div class="lr-bar"><div class="lr-fill${it.v>85?" crit":it.v>65?" warn":""}" style="width:${it.v}%"></div></div>
+      </div>`).join("");
+  }
+
+  if(d.processos){
+    const pl=document.getElementById("proc-list"); pl.innerHTML="";
+    d.processos.forEach(p=>{
+      const r=document.createElement("div"); r.className="proc-row";
+      r.innerHTML=`<span class="pr-name" title="${esc(p.nome)}">${esc(p.nome)}</span>
+        <span class="pr-cpu">${p.cpu}%</span>
+        <span class="pr-ram">${p.ram}%</span>
+        <button class="pr-kill" onclick="matar(${p.pid})" title="Matar processo">✕</button>`;
+      pl.appendChild(r);
+    });
+  }
+}
+
+async function refreshMonitor(){
+  const d=await api("GET","/monitor"); if(d) updMon(d);
+}
+
+async function matar(pid){
+  if(!confirm(`Encerrar PID ${pid}?`)) return;
+  addLog("KILL","PID "+pid,"warn");
+  await api("POST","/comando",{texto:`encerre o processo com PID ${pid}`,tts:false});
+  await refreshMonitor();
+}
+
+// ═══════════════════════════════════════════════════════
+//  MEMÓRIA
+// ═══════════════════════════════════════════════════════
+async function limparMemoria(){
+  if(!confirm("Limpar toda a memória do JARVIS?")) return;
+  await api("DELETE","/memoria");
+  addLog("MEM","Memória limpa","warn");
+}
+
+// ═══════════════════════════════════════════════════════
+//  AGENTES
+// ═══════════════════════════════════════════════════════
+async function refreshAgentes(){
+  const data=await api("GET","/agentes"); if(!data) return;
+  const grid=document.getElementById("agents-grid"); grid.innerHTML="";
+  data.forEach(a=>{
+    const card=document.createElement("div");
+    card.className="ag-card"+(a.status?.status==="running"?" running":"");
+    card.id=`ag-${a.id}`;
+    card.title=a.desc;
+    card.innerHTML=`<div class="ag-name">${esc(a.nome.replace(" Agent",""))}</div>
+      <div class="ag-st">${a.status?.status||"idle"}</div>`;
+    grid.appendChild(card);
+  });
+}
+
+function updAgent(id,st){
+  const c=document.getElementById(`ag-${id}`);
+  if(!c) return;
+  c.className="ag-card"+(st==="running"?" running":st==="error"?" error":"");
+  const s=c.querySelector(".ag-st"); if(s) s.textContent=st;
+}
+
+async function dispararAgente(){
+  const inp=document.getElementById("agent-input");
+  const obj=inp.value.trim();
+  if(!obj){ showAlert("Digite o objetivo para o agente"); return; }
+  inp.value="";
+  addLog("AGENT","Objetivo: "+obj.slice(0,40),"agent");
+  addChat(obj,"user"); showTr("Agente iniciando...");
+  setHud("processing");
+  const d=await api("POST","/agente",{objetivo:obj,tts:ttsAuto});
+  if(!d){ setHud("idle"); return; }
+  const r=d.mensagem||"Concluído";
+  showTr(r,"jarvis"); addChat(r,"jarvis");
+  if(ttsAuto&&d.audio) await JarvisVoice.playAudio(d.audio,d.audioMime||"audio/mpeg");
+  else setHud("idle");
+}
+
+// ═══════════════════════════════════════════════════════
+//  SCREENSHOT / LER TELA
+// ═══════════════════════════════════════════════════════
+async function tirarScreenshot(){
+  addLog("SCR","Capturando...","intent");
+  const d=await api("POST","/comando",{texto:"tire um screenshot agora e me descreva o que está na tela",tts:ttsAuto});
+  if(!d) return;
+  const r=d.resposta||"...";
+  showTr(r,"jarvis"); addChat(r,"jarvis");
+  if(ttsAuto&&d.audio) await JarvisVoice.playAudio(d.audio,d.audioMime||"audio/mpeg");
+}
+
+async function lerTela(){
+  addLog("OCR","Lendo tela...","intent");
+  const d=await api("POST","/comando",{texto:"leia e descreva em detalhes o conteúdo da tela atual",tts:ttsAuto});
+  if(!d) return;
+  const r=d.resposta||"...";
+  showTr(r,"jarvis"); addChat(r,"jarvis");
+  if(ttsAuto&&d.audio) await JarvisVoice.playAudio(d.audio,d.audioMime||"audio/mpeg");
+}
+
+// ═══════════════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════════════
+function openCfg(){
+  document.getElementById("cfg-user").value=srvCfg.userName||"Senhor";
+  document.getElementById("cfg-wake").value=srvCfg.wakeWord||"jarvis";
+  document.getElementById("cfg-sil").value="1800";
+  document.getElementById("cfg-pers").value=srvCfg.personality||"sarcastico";
+  document.getElementById("cfg-modal").classList.add("open");
+}
+function closeCfg(){document.getElementById("cfg-modal").classList.remove("open");}
+async function saveCfg(){
+  const p=document.getElementById("cfg-pers").value;
+  const ms=parseInt(document.getElementById("cfg-sil").value)||1800;
+  const wk=document.getElementById("cfg-wake").value.trim().toLowerCase()||"jarvis";
+  JarvisVoice.setSilenceMs(ms);
+  JarvisVoice.setWakeWord(wk);
+  await api("POST","/personalidade",{tipo:p});
+  addLog("CFG","Personalidade: "+p,"ok");
+  closeCfg();
+}
+
+// ═══════════════════════════════════════════════════════
+//  TOGGLES
+// ═══════════════════════════════════════════════════════
+function toggleTts(){
+  ttsAuto=!ttsAuto;
+  JarvisVoice.setTtsAuto(ttsAuto);
+  const b=document.getElementById("b-tts");
+  b.textContent=ttsAuto?"🔊 TTS":"🔇 TTS";
+  b.classList.toggle("on",ttsAuto);
+  addLog("TTS",ttsAuto?"Auto-fala ON":"OFF","ok");
+}
+
+function toggleWake(){
+  wakeOn=!wakeOn;
+  const b=document.getElementById("b-wake");
+  b.classList.toggle("on",wakeOn);
+  if(wakeOn){ JarvisVoice.startWakeWord(); addLog("WAKE","Wake-word ON: "+srvCfg.wakeWord,"ok"); }
+  else { JarvisVoice.stopWakeWord(); addLog("WAKE","Wake-word OFF","warn"); }
+}
+
+// ═══════════════════════════════════════════════════════
+//  ALERTA
+// ═══════════════════════════════════════════════════════
+let alertTmr=null;
+function showAlert(msg,dur=6000){
+  const el=document.getElementById("alert");
+  el.textContent=msg; el.classList.add("show");
+  if(alertTmr) clearTimeout(alertTmr);
+  alertTmr=setTimeout(()=>el.classList.remove("show"),dur);
+}
+
+// ═══════════════════════════════════════════════════════
+//  API FETCH
+// ═══════════════════════════════════════════════════════
+async function api(method,path,body=null){
+  try{
+    const opt={method,headers:{"Content-Type":"application/json"}};
+    if(body) opt.body=JSON.stringify(body);
+    const r=await fetch(API+path,opt);
+    if(!r.ok){ addLog("NET","HTTP "+r.status+" "+path,"error"); return null; }
+    return await r.json();
+  }catch(e){
+    addLog("NET",e.message,"error");
+    return null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  INPUT TEXTO
+// ═══════════════════════════════════════════════════════
+async function sendText(){
+  const inp=document.getElementById("txt-input");
+  const v=inp.value.trim(); if(!v) return; inp.value="";
+  addChat(v,"user"); showTr(v,"user"); addLog("TXT",v,"intent");
+  setHud("processing");
+  const d=await api("POST","/comando",{texto:v,tts:ttsAuto});
+  if(!d){ setHud("idle"); return; }
+  const r=d.resposta||d.erro||"...";
+  showTr(r,"jarvis"); addChat(r,"jarvis");
+  addLog(d.intencao||"RESP",d.raciocinio||r,"ok");
+  if(ttsAuto&&d.audio) await JarvisVoice.playAudio(d.audio,d.audioMime||"audio/mpeg");
+  else setHud("idle");
+}
+document.getElementById("txt-input").addEventListener("keydown",e=>{
+  if(e.key==="Enter"){e.preventDefault();sendText();}
+});
+
+// ═══════════════════════════════════════════════════════
+//  MIC — handler do botão (requer gesto do usuário)
+// ═══════════════════════════════════════════════════════
+async function handleMicClick(){
+  // AudioContext SÓ pode ser criado após gesto — este é o handler
+  await JarvisVoice.toggleMic();
+}
+
+// ═══════════════════════════════════════════════════════
+//  WEBSOCKET — reconexão robusta
+// ═══════════════════════════════════════════════════════
+let wsRetry=0;
+function initWS(){
+  try{
+    ws=new WebSocket(WS_URL);
+    ws.onopen=()=>{
+      wsRetry=0;
+      document.getElementById("ws-st").textContent="OK";
+      addLog("WS","Conectado","ok");
+    };
+    ws.onmessage=e=>{
+      try{ const {event,data}=JSON.parse(e.data); handleWS(event,data); }catch{}
+    };
+    ws.onclose=()=>{
+      document.getElementById("ws-st").textContent="LOST";
+      wsRetry=Math.min(wsRetry+1,10);
+      const delay=Math.min(1000*wsRetry,15000);
+      addLog("WS",`Reconectando em ${delay/1000}s...`,"warn");
+      setTimeout(initWS,delay);
+    };
+    ws.onerror=()=>ws.close();
+  }catch{ setTimeout(initWS,5000); }
+}
+
+function handleWS(event,data){
+  switch(event){
+    case "connected":
+      srvCfg=data||{};
+      document.getElementById("fi-mod").textContent=
+        (data?.models?.primary||"--").split("-").slice(0,2).join("-");
+      // ElevenLabs badge
+      const elLabel=document.getElementById("eleven-label");
+      const elTxt=document.getElementById("engine-text");
+      if(data?.eleven?.active){
+        elLabel.className="";
+        elTxt.textContent="ELEVENLABS ATIVO";
+        document.getElementById("b-eleven").classList.add("on");
+        document.getElementById("fi-eng").textContent="ElevenLabs";
+      } else {
+        elLabel.className="openai";
+        elTxt.textContent="OPENAI TTS ATIVO";
+        document.getElementById("fi-eng").textContent="OpenAI TTS";
+      }
+      if(data?.wakeWord) JarvisVoice.setWakeWord(data.wakeWord);
+      addLog("BOOT",`${data?.version||"v?"} ${data?.build||""}`, "ok");
+      break;
+
+    case "status":
+      if(data.fase==="raciocinando"||data.fase==="executando") setHud("processing");
+      else if(data.fase==="concluido") { /* voice module controla idle */ }
+      else if(data.fase==="erro"){ setHud("idle"); showAlert("Erro: "+(data.erro||"")); }
+      else if(data.fase==="voz_transcrita"){
+        showTr(data.texto,"user"); addChat(data.texto,"user");
+      }
+      if(data.intencao) addLog(data.intencao,data.fase||"","intent");
+      break;
+
+    case "agent_status":
+      if(data.agentId) updAgent(data.agentId,data.status); break;
+
+    case "agente_step":
+      addLog(`[${data.agente||"?"}]`,data.resultado||"","agent"); break;
+
+    case "monitor_update":
+      updMon(data); break;
+
+    case "tts_status":
+      if(data.status==="ready"){
+        document.getElementById("fi-eng").textContent=
+          data.engine==="elevenlabs"?"ElevenLabs":"OpenAI TTS";
+      }
+      break;
+
+    case "log_entry":
+      addLog(data.intencao||data.type||"SRV",
+        data.texto||data.msg||JSON.stringify(data).slice(0,60),
+        data.erro?"error":"ok"); break;
+
+    case "alerta_sistema":
+      showAlert(data.mensagem||"");
+      addLog("ALERTA",data.mensagem||"","error"); break;
+
+    case "alerta_audio":
+      if(ttsAuto&&data.audio)
+        JarvisVoice.playAudio(data.audio,data.mime||"audio/mpeg"); break;
+
+    case "memory_update":
+      // Silencioso
+      break;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  ATALHOS DE TECLADO
+// ═══════════════════════════════════════════════════════
+document.addEventListener("keydown",e=>{
+  const focused=document.activeElement;
+  const inInput=focused&&(focused.tagName==="INPUT"||focused.tagName==="TEXTAREA"||focused.tagName==="SELECT");
+  if(inInput) return;
+  if(document.getElementById("cfg-modal").classList.contains("open")) return;
+
+  if(e.code==="Space"){ e.preventDefault(); handleMicClick(); }
+  if(e.key==="Escape"){ JarvisVoice.stop(); setHud("idle"); }
+  if(e.ctrlKey&&e.key==="l"){ e.preventDefault(); clearLog(); }
+  if(e.ctrlKey&&e.key===","){ e.preventDefault(); openCfg(); }
+});
+
+// ═══════════════════════════════════════════════════════
+//  INIT VOICE MODULE
+// ═══════════════════════════════════════════════════════
+JarvisVoice.init({
+  serverUrl:   API,
+  wakeWord:    "jarvis",
+  silenceMs:   1800,
+  ttsAuto:     true,
+
+  onStateChange(s){
+    setHud(s);
+    if(s==="idle") vizData=null;
+  },
+
+  onTranscript(txt){
+    if(txt){ showTr(txt,"user"); addChat(txt,"user"); }
+  },
+
+  onResponse(data){
+    const r=data.resposta||"...";
+    showTr(r,"jarvis"); addChat(r,"jarvis");
+    addLog(data.intencao||"RESP",data.raciocinio||r,"ok");
+    if(data.agente||data.agente_usado)
+      updAgent(data.agente||data.agente_usado,"idle");
+    if(data.ttsEngine)
+      document.getElementById("fi-eng").textContent=
+        data.ttsEngine==="elevenlabs"?"ElevenLabs":"OpenAI TTS";
+  },
+
+  onError(msg){
+    addLog("ERR",msg,"error");
+    showAlert(msg);
+    setHud("idle");
+  },
+
+  onAudioStart(){ setHud("speaking"); },
+  onAudioEnd(){
+    setHud("idle");
+    if(wakeOn) setTimeout(()=>JarvisVoice.startWakeWord(),400);
+  },
+
+  onVizData(data){ vizData=data; },
+});
+
+// ═══════════════════════════════════════════════════════
+//  BOOT
+// ═══════════════════════════════════════════════════════
+async function boot(){
+  addLog("BOOT","JARVIS OMEGA iniciando...","ok");
+  initWS();
+
+  // Pede permissão de mic assim que o usuário interage pela 1ª vez
+  // (não no boot para evitar block de AudioContext)
+  document.getElementById("mic-btn").addEventListener("click",()=>{},{ once:true });
+
+  await refreshMonitor();
+  await refreshAgentes();
+
+  // Saudação visual
+  const hr=new Date().getHours();
+  const sd=hr<12?"Bom dia":hr<18?"Boa tarde":"Boa noite";
+  const msg=`${sd}. Todos os sistemas operacionais. Pronto para ouvir você, ${
+    srvCfg.userName||"Senhor"}.`;
+  showTr(msg,"jarvis");
+  addChat(msg,"jarvis");
+  addLog("BOOT","Online","ok");
+
+  // Fala de boas-vindas — requer que o usuário já tenha clicado em algo
+  // (botão mic no html já tem onclick — se clicar antes do boot funciona)
+  // Aqui tentamos após 500ms, se já houve gesto
+  setTimeout(async()=>{
+    try{
+      const d=await api("POST","/voz/falar",{texto:msg});
+      if(d?.audio) await JarvisVoice.playAudio(d.audio,d.mime||"audio/mpeg");
+    }catch{}
+  }, 500);
+
+  setInterval(async()=>{ await refreshMonitor(); await refreshAgentes(); }, 12000);
+}
+
+boot();
+</script>
+</body>
+</html>
