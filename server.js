@@ -22,8 +22,8 @@ const BUILD      = "OMEGA-CLOUD";
 const CLOUD_MODE = true;
 
 // ── Validação ────────────────────────────────────────────────
-if (!process.env.OPENAI_API_KEY) {
-  console.error("❌  OPENAI_API_KEY ausente no .env");
+if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.trim() === "") {
+  console.error("❌ OPENAI_API_KEY não encontrada nas variáveis do ambiente");
   process.exit(1);
 }
 
