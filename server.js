@@ -1,4 +1,4 @@
-console.log("CHAVE:", process.env.OPENAI_API_KEY);
+require('dontev').config();
 
 // ═══════════════════════════════════════════════════════════════
 //  JARVIS OMEGA v6 — server.js — CLOUD MODE
