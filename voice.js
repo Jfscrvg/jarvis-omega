@@ -287,8 +287,8 @@ const JarvisVoice = (() => {
   async function processAudio() {
     setState("processing");
 
-    const mime  = audioChunks[0]?.type || bestMime() || "audio/webm";
-    const blob  = new Blob(audioChunks, { type: mime });
+    const mime  = "audio/mp3";
+    const blob  = new Blob(audioChunks, { type: "audio/mp3" });
 
     let b64;
     try {
