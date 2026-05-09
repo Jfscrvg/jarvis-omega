@@ -43,7 +43,10 @@ app.use(express.json({ limit: "50mb" }));
 // ── Serve frontend estático ─────────────────────────────────
 app.use(express.static(path.join(__dirname)));
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000; 
+app.listen(PORT, () => {
+    console.log(`Servidor rodando na porta ${PORT}`);
+});
 
 // ═══════════════════════════════════════════════════════════════
 //  CONFIG CENTRAL
